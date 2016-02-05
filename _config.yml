@@ -1,0 +1,18 @@
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely need to edit after that.
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'jekyll serve'. If you change this file, please restart the server process.
+
+# Site settings
+title: ML Melody Co-composition
+email: sl12754@my.bristol.ac.uk
+description: A machine learning approach to co-composition in assistance to a human composer 
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://github.com/Melamoto/ML-Melody-Co-composition" # the base hostname & protocol for your site
+twitter_username: melamoto
+github_username:  Melamoto
+
+# Build settings
+markdown: kramdown
