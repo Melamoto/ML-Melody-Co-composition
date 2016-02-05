@@ -1,4 +1,4 @@
-# Welcome to Jekyll!
+    # Welcome to Jekyll!
 #
 # This config file is meant for settings that affect your whole blog, values
 # which you are expected to set up once and rarely need to edit after that.
@@ -16,3 +16,7 @@ github_username:  Melamoto
 
 # Build settings
 markdown: kramdown
+
+JB :
+
+  BASE_PATH : http://melamoto.github.io/ML-Melody-Co-composition
