@@ -11,7 +11,7 @@ email: sl12754@my.bristol.ac.uk
 description: A machine learning approach to co-composition in assistance to a human composer 
 baseurl: "/ML-Melody-Co-composition" # the subpath of your site, e.g. /blog
 url: "https://github.com/Melamoto/ML-Melody-Co-composition" # the base hostname & protocol for your site
-twitter_username: melamoto
+twitter_username: SteveLiverTozer
 github_username:  Melamoto
 
 # Build settings
