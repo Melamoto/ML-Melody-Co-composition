@@ -2,7 +2,7 @@
 layout: post
 title:  "Objectives"
 date:   2016-02-06 21:00:00 +0000
-categories: progress update 
+categories: progress update planning
 ---
 ### Summary
 

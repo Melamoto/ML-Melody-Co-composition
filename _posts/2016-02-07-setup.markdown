@@ -1,0 +1,67 @@
+---
+layout: post
+title:  "Setup"
+date:   2016-02-07 21:00:00 +0000
+categories: progress update planning
+---
+### Summary
+
+This post discusses the setup necessary to realise this project, including the 
+selection of language, a set of learning methods to trial, and a source of 
+training data. A summary of the key points of this post are given here:
+
+The language I will be using throughout this project is Python, as it is well 
+suited to both the task and myself. The learning method that will be used for 
+the first implementation to be tested will be one based on *neural networks*, 
+as they are relatively easy to implement in Python given appropriate training 
+data. The training data in question will be classical solo piano pieces, due 
+to the availability and volume of MIDI files as well as their suitability for 
+the task.
+
+### Language
+
+The selection of language for the project will decide the availability of 
+libraries for machine learning, as well as the run-time performance. Some of 
+the best candidates for these criteria are Python, Matlab, R, and Java. Of 
+these, Python and its libraries are best suited my own experience, and as a 
+general purpose programming language it provides adequate facilities for 
+real-time interactivity. The libraries available cover most common ML 
+methods, and many of these libraries have extensible functionality, allowing 
+modifications to the existing methods to be made.
+
+### Learning Methods
+
+The first set of learning methods to be tested will be those that have had 
+some prior demonstrated success in composition. Most of these can be 
+considered part of one or more of a few broad classes of AI. These classes 
+include *neural networks*, *evolutionary algorithms*, *rule learning*, and 
+*Markovian models*. Methods from each of these classes have been used by 
+artificial composers to relatively high degrees of success. They all have 
+requirements for their use however, making some less desirable than others at 
+this stage.
+
+*Neural networks* and *Markovian models* are convenient choices to start with, 
+as they each require only training data to be provided. As training data is 
+relatively easy to obtain, as opposed to a fitness function (for *evolutionary 
+algorithms*) or an effective initial rule set (for *rule learning*), it would 
+be efficient to start with such a method. Of these two, *neural networks* have 
+the best library support in Python, and so would be a good choice for early 
+implementations.
+
+### Training Data
+
+The type of music selected for testing will have very significant effects on 
+the outcome of the AI processing. Different genres typically have very 
+different compositional structures, which the AI must be able to successfully 
+predict. It is also preferable early on that the samples come from the same 
+composer whose work is being predicted. In a complete application, this would 
+not be the typical case; the AI would instead attempt to select appropriate 
+samples from a database to approximate the user's style. For the purposes of 
+testing just the prediction however, this is not necessary. 
+
+The music sampled must be available in MIDI format, which limits the number of 
+options. As the AI will initially be predicting single voice melodies, music 
+featuring many voices in complex arrangements, such as orchestral, should be 
+avoided. With these restrictions in mind, one of the most suitable sources is 
+classical solo piano music: many such works are available in MIDI format 
+online, royalty-free, and contain only 1-2 voices.
