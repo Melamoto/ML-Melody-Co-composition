@@ -1,0 +1,86 @@
+---
+layout: post
+title:  "Planning"
+date:   2016-02-19 19:00:00 +0000
+categories: progress update planning
+---
+### Planning summary
+
+#### Timescale
+
+| Date    | Progress                                                      |
+|---------|:--------------------------------------------------------------|
+| *24/02* | recitation of a set of short term rhythms                     |
+| *02/03* | recitation of a set of short term rhythms & pitch sequences   |
+| *09/03* | continuation of a set of short term rhythms & pitch sequences |
+| *16/03* | recitation of a set of long term rhythms                      |
+| *23/03* | recitation of a set of long term pitch sequences              |
+| *30/03* | recitation of a set of long term rhythm & pitch sequences     |
+| *06/04* | continuation of a set of long term rhythm & pitch sequences   |
+| *13/04* | recitation of a set of hybrid pitch sequences                 |
+| *20/04* | recitation of a set of hybrid rhythm & pitch sequences        |
+| *27/04* | continuation of a set of hybrid rhythm & pitch sequences      |
+
+#### Problem stages
+
+* **Rhythm (short term)** - the rhythmic patterns occuring across a set of 
+bars
+* **Rhythm (long term)** - the rhythmic patterns that repeat in non-adjacent 
+bars
+* **Rhythm (hybrid)** - simultaneous application of short and long term rhythm
+* **Pitch sequence (short term)** - the trends in pitch intervals across a set 
+of bars
+* **Pitch sequence (long term)** - the pitch patterns that repeat in 
+non-adjacent bars
+* **Pitch sequence (hybrid)** - simultaneous application of short and long 
+term pitch sequences
+* **Harmony** - the additional notes and melodies occuring over the top of an 
+existing monophonic melody
+
+#### Solution stages
+
+* **Exact recitation of one sample** - training against a single sample and 
+recreating that sample from small inputs
+* **Approximate recitation of a set of trained samples** - training against a 
+set of samples and approximately recreating those samples starting from small 
+inputs
+* **Approximate continuation of a set of untrained samples** - training 
+against a set of samples and providing human-satisfactory continuations for a 
+different set of samples
+
+### Notes
+
+The ordering of the tasks is based on expected difficulty. The earlier tasks 
+are expected to be easier than the later tasks, even with respect to work done 
+in prior weeks; this is intended to correspond to my own availability and 
+expected motivation levels throughout the project. 
+
+A large chunk of the work constitutes combining previously achieved results; 
+whether melody and rhythm or short term and long term. This is expected to be 
+challenging, and may require some steps back to be taken. However, given the 
+working state of each of the component solutions, 1 week should be an 
+acceptable time frame for this.
+
+Exact recitation of a single sample is considered to generally be a fairly 
+trivial task in most cases. None of the given problems should be unrealistic 
+in this regard, but there are many uncertainties and complications may arise 
+(particularly with regards to combined pitch/rhythm problems), in which case 
+the schedule will need to be adjusted. Continuation is likely to be a much 
+more difficult problem to solve, but one whose solution consitutes a 
+significant milestone at any stage
+
+Nowhere in the planned timescale is harmonization submitted as a problem to be 
+solved; the reason for this is that it is a particularly difficult problem to 
+solve and is not intrinsically linked to monophonic melody generation, unlike 
+all of the other problems that are listed. Therefore, barring exceptional 
+progress starting early in the project, harmonization will not be attempted in 
+this project.
+
+Another problem not even mentioned above is the usage of imperfections in the 
+music resulting from (or emulating) human performance. This is a fairly 
+important feature in a lot of music, and has been the subject of previous 
+research. However, it is also a difficult problem that is commonly solved by 
+methods that are unrelated to the methods being used in this project. As such, 
+it can be considered ancillary to the actual purpose of this AI; particularly 
+as the human composer being assisted by the AI will likely be capable of 
+making the necessary alterations if they are wanted.
