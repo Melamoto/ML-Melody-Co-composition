@@ -6,9 +6,11 @@ ANN based on Todd's design
 from pybrain.structure.connections.connection import Connection
 from pybrain.structure import LinearLayer, SigmoidLayer
 from pybrain.structure import RecurrentNetwork
-from pybrain.structure import FullConnection
+from pybrain.structure import FullConnection, IdentityConnection
 from pybrain.datasets.sequential import SequentialDataSet
 from scipy import dot
+import operator
+import midi
 
 class WeightedPartialIdentityConnection(Connection):
     """Connection which connects the i'th element from the first module's 
@@ -25,19 +27,23 @@ class WeightedPartialIdentityConnection(Connection):
         self.maxIndex = maxIndex
 
     def _forwardImplementation(self, inbuf, outbuf):
-        outbuf += dot([i*self.weight for i in inbuf],[1]*self.maxIndex + [0]*(self.indim-self.maxIndex))
+        #outbuf += dot([i*self.weight for i in inbuf],[1]*self.maxIndex + [0]*(self.indim-self.maxIndex))
+        outbuf += [i*self.weight for i in inbuf]
 
     def _backwardImplementation(self, outerr, inerr, inbuf):
-        inerr += dot([i*self.weight for i in outerr],[1]*self.maxIndex + [0]*(self.indim-self.maxIndex))
+        #inerr += dot([i*self.weight for i in outerr],[1]*self.maxIndex + [0]*(self.indim-self.maxIndex))
+        inerr += [i*self.weight for i in outerr]
 
 pitchCount = 12
 planCount = 0
+# Value representing no pitch
+nonPitch = -1
 
 def sampleSize():
     return pitchCount + planCount + 1
     
 def outputSize():
-    return sampleSize() #pitchCount + 1
+    return pitchCount
 
 def makeNoteSample(pitch, newNote, plan):
     sample = [0] * sampleSize()
@@ -55,15 +61,13 @@ def makeNoteSample(pitch, newNote, plan):
             sample[i+pitchCount+1] = 0
     return sample
     
-def makeNoteTarget(pitch, newNote):
+def makeNoteTarget(pitch):
     target = [0] * outputSize()
     for i in range(pitchCount):
         if i == pitch:
             target[i] = 1
         else:
             target[i] = 0
-    target[pitchCount] = newNote
-    #target = target + [0]*planCount
     return target
 
 class Melody():
@@ -75,11 +79,30 @@ class Melody():
     def addSamples(self, dataSet):
         for s in range(len(self.pitches)-1):
             dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s], self.plan),
-                              makeNoteTarget(self.pitches[s+1], self.newNotes[s+1]))
+                              makeNoteTarget(self.pitches[s+1]))
 
     def addNote(self, pitch, newNote):
         self.pitches.append(pitch)
         self.newNotes.append(newNote)
+
+def makeTrackMelody(track,plan):
+    assert track.isMonophonic(), "Only monophonic tracks can be enscribed"
+    melody = Melody(plan)
+    melody.pitches = [nonPitch]*track.length
+    melody.newNotes = [False]*track.length
+    noteStart = 0
+    noteEnd = 0
+    n = -1
+    for t in range(track.length):
+        if noteEnd <= t:
+            n = n + 1
+            noteStart = track.notes[n].start
+            noteEnd = track.notes[n].start + track.notes[n].duration
+        if t == noteStart:
+            melody.newNotes[t] = True
+        if noteStart <= t and t < noteEnd:
+            melody.pitches[t] = track.notes[n].pitch
+    return melody
 
 def makeMelodyDataSet(melodies):
     seqDataSet = SequentialDataSet(sampleSize(), outputSize())
@@ -88,23 +111,38 @@ def makeMelodyDataSet(melodies):
         m.addSamples(seqDataSet)
     return seqDataSet
 
-def buildToddNetwork():
+def buildToddNetwork(hiddenSize):
     net = RecurrentNetwork()
     inLayer = LinearLayer(sampleSize())
-    hiddenLayer = SigmoidLayer(6)
+    hiddenLayer = SigmoidLayer(hiddenSize)
     outLayer = SigmoidLayer(outputSize())
     net.addInputModule(inLayer)
     net.addModule(hiddenLayer)
     net.addOutputModule(outLayer)
-    inRecursive = WeightedPartialIdentityConnection(0.8, pitchCount, inLayer, inLayer)
+    inRecursive = WeightedPartialIdentityConnection(0.8, pitchCount+1, inLayer, inLayer)
     inToHidden = FullConnection(inLayer, hiddenLayer)
     hiddenToOut = FullConnection(hiddenLayer, outLayer)
-    feedbackRecursive = WeightedPartialIdentityConnection(1, pitchCount, outLayer, inLayer)
     net.addRecurrentConnection(inRecursive)
     net.addConnection(inToHidden)
     net.addConnection(hiddenToOut)
-    net.addRecurrentConnection(feedbackRecursive)
     net.sortModules()
     return net
-
-
+    
+def getNextPitches(net, startPitch, startBeat, beats, plan=0):
+    noteCount = len(beats)
+    notes = [0]*noteCount
+    lastPitch = startPitch
+    lastBeat = (startBeat == 1)
+    for i in range(noteCount):
+        nextSample = makeNoteSample(lastPitch,lastBeat,plan)
+        out = net.activate(nextSample)
+        # If the note is being sustained, do not change the pitch
+        if beats[i] == 1:
+            lastPitch = max(enumerate(out),key=operator.itemgetter(1))[0]
+        # If the melody is silent, use no note
+        elif beats[i] == 0:
+            lastPitch = nonPitch
+        lastBeat = (beats[i] == 1)
+        notes[i] = lastPitch
+    return notes
+    
