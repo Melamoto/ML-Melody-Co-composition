@@ -40,7 +40,7 @@ class Track:
             lastEnd = note.start + note.duration
         return True
         
-def makeTrackFromFile(midi):
+def makeTrackFromMidi(midi):
     assert len(midi.tracks) == 1, "Midi file must contain only 1 track"
     track = Track()
     currentTime = 0
@@ -59,3 +59,5 @@ def makeTrackFromFile(midi):
                 rescaleToTimesteps(midi,difference))
                 track.addNote(note)
     return track
+    
+

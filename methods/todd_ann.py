@@ -8,6 +8,7 @@ from pybrain.structure import LinearLayer, SigmoidLayer
 from pybrain.structure import RecurrentNetwork
 from pybrain.structure import FullConnection, IdentityConnection
 from pybrain.datasets.sequential import SequentialDataSet
+from pybrain.supervised.trainers import BackpropTrainer
 from scipy import dot
 import operator
 import midi
@@ -78,7 +79,8 @@ class Melody():
 
     def addSamples(self, dataSet):
         for s in range(len(self.pitches)-1):
-            dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s], self.plan),
+            dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s],
+                                             self.plan),
                               makeNoteTarget(self.pitches[s+1]))
 
     def addNote(self, pitch, newNote):
@@ -101,7 +103,7 @@ def makeTrackMelody(track,plan):
         if t == noteStart:
             melody.newNotes[t] = True
         if noteStart <= t and t < noteEnd:
-            melody.pitches[t] = track.notes[n].pitch
+            melody.pitches[t] = track.notes[n].pitch % pitchCount
     return melody
 
 def makeMelodyDataSet(melodies):
@@ -127,6 +129,10 @@ def buildToddNetwork(hiddenSize):
     net.addConnection(hiddenToOut)
     net.sortModules()
     return net
+    
+def trainNetwork(net, ds, epochs, momentum=0.4, weightdecay = 0.01):
+    trainer = BackpropTrainer(net, dataset=ds, momentum=momentum, weightdecay=weightdecay)
+    trainer.trainEpochs(epochs)
     
 def getNextPitches(net, startPitch, startBeat, beats, plan=0):
     noteCount = len(beats)

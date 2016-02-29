@@ -3,12 +3,12 @@
 An HMM for predicting rhythmic sequences in music
 """
 from hmmlearn.hmm import MultinomialHMM
-import midi
+import numpy as np
 
 class Rhythm:
     
     def __init__(self):
-        self.timesteps = []
+        self.timesteps = np.array([])
 
     def addTimestep(self, note):
         self.timesteps.append([note])
@@ -36,11 +36,12 @@ def makeTrackRhythm(track):
     
 
 def makeRhythmSamples(rhythms):
-    samples = []
-    lengths = []
+    samples = np.array([]).astype(np.int32)
+    lengths = np.array([]).astype(np.int32)
     for r in rhythms:
-        samples.extend(r.timesteps)
-        lengths.append(len(r.timesteps))
+        samples = np.concatenate((samples, r.timesteps))
+        lengths = np.append(lengths, len(r.timesteps))
+    samples = samples.reshape(-1,1)
     return (samples,lengths)
 
 def buildHMM(num_states):
