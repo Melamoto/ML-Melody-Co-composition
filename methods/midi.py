@@ -4,11 +4,16 @@ Handles the input, output, and representation of midi files
 """
 
 from mido import MidiFile
+from mido import MidiTrack
+import mido
 
 timestepsPerBeat = 16
 
-def rescaleToTimesteps(midi, time):
-    return int((time/midi.ticks_per_beat)*timestepsPerBeat)
+def rescaleToTimesteps(ticks_per_beat, time):
+    return round((time/ticks_per_beat)*timestepsPerBeat)
+
+def rescaleToTicks(ticks_per_beat, time):
+    return round((time/timestepsPerBeat)*ticks_per_beat)
 
 class Note:
 
@@ -55,9 +60,24 @@ def makeTrackFromMidi(midi):
             # Note goes off
             else:
                 difference = currentTime - lastNoteStarted[message.note]
-                note = Note(pitch, rescaleToTimesteps(midi,lastNoteStarted[pitch]),\
-                rescaleToTimesteps(midi,difference))
+                note = Note(pitch, rescaleToTimesteps(midi.ticks_per_beat,
+                                                      lastNoteStarted[pitch]),
+                            rescaleToTimesteps(midi.ticks_per_beat,difference))
                 track.addNote(note)
     return track
     
-
+def makeMidiFromTrack(track, ticksPerBeat, tempo=800000):
+    midi = MidiFile(ticks_per_beat=ticksPerBeat)
+    midi.add_track()
+    midi.tracks[0].append(mido.MetaMessage('set_tempo', tempo=tempo, time=0))
+    eventTime = 0
+    for n in track.notes:
+        lastEvent = eventTime
+        eventTime = rescaleToTicks(ticksPerBeat, n.start)
+        midi.tracks[0].append(mido.Message('note_on', note=n.pitch, velocity=64,
+                                          time=eventTime-lastEvent))
+        lastEvent = eventTime
+        eventTime = rescaleToTicks(ticksPerBeat, n.start + n.duration)
+        midi.tracks[0].append(mido.Message('note_off', note=n.pitch, velocity=127,
+                                          time=eventTime-lastEvent))
+    return midi

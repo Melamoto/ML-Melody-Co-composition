@@ -45,6 +45,8 @@ class MelodyGenerator:
         tempProbs = self.hmm.startprob_
         self.hmm.startprob_ = startProbs
         rhythmOut = np.concatenate(self.hmm.sample(timeCount)[0])
+        self.net.reset()
+        self.net.activateOnDataset(melodyDS)
         pitchOut = mel.getNextPitches(self.net, melody.pitches[-1],
                                       rhythm.timesteps[-1], rhythmOut)
         # Return
