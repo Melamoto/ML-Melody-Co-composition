@@ -11,7 +11,7 @@ class Rhythm:
         self.timesteps = np.array([])
 
     def addTimestep(self, note):
-        self.timesteps.append([note])
+        self.timesteps = np.append(self.timesteps, note).astype(np.int32)
             
     def length(self):
         return len(self.timesteps)
@@ -33,7 +33,6 @@ def makeTrackRhythm(track):
         elif noteStart < t and t < noteEnd:
             rhythm.timesteps[t] = 2
     return rhythm
-    
 
 def makeRhythmSamples(rhythms):
     samples = np.array([]).astype(np.int32)

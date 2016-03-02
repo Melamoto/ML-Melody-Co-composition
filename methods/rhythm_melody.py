@@ -44,11 +44,41 @@ class MelodyGenerator:
         startProbs[startState] = 1.0
         tempProbs = self.hmm.startprob_
         self.hmm.startprob_ = startProbs
-        rhythmOut = np.concatenate(self.hmm.sample(timeCount)[0])
+        rhythmOutTS = np.concatenate(self.hmm.sample(timeCount)[0])
         self.net.reset()
-        self.net.activateOnDataset(melodyDS)
-        pitchOut = mel.getNextPitches(self.net, melody.pitches[-1],
-                                      rhythm.timesteps[-1], rhythmOut)
+        for sample in melodyDS.getSequenceIterator(0):
+            self.net.activate(sample[0])
+        pitchOutTS = mel.getNextPitches(self.net, melody.pitches[-1],
+                                        rhythm.timesteps[-1], rhythmOutTS)
+        # Load output into classes
+        rhythmOut = rh.Rhythm()
+        pitchOut = mel.Melody(0)
+        t = 0
+        for t in range(len(rhythmOutTS)):
+            rhythmOut.addTimestep(rhythmOutTS[t])
+            newNote = (rhythmOutTS[t] == 1)
+            pitchOut.addNote(pitchOutTS[t],newNote)
         # Return
         self.hmm.startprob_ = tempProbs
         return (rhythmOut,pitchOut)
+        
+def makeTrackFromRhythmMelody(rhythm, melody, octave):
+    assert rhythm.length() == melody.length(), "Rhythm and melody must have equal lengths"
+    track = midi.Track()
+    t = 0
+    noteTime = 0
+    notePitch = 0
+    noteOn = False
+    while t < rhythm.length():
+        if rhythm.timesteps[t] != 2 and noteOn == True:
+            track.addNote(midi.Note(notePitch, noteTime, t - noteTime))
+            noteOn = False
+        if rhythm.timesteps[t] == 1:
+            noteTime = t
+            notePitch = melody.pitches[t] + octave*12
+            noteOn = True
+        t = t + 1
+    if noteOn == True:
+        track.addNote(midi.Note(notePitch, noteTime, t - noteTime))
+    return track
+        

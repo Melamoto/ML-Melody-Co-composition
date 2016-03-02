@@ -45,6 +45,16 @@ class Track:
             lastEnd = note.start + note.duration
         return True
         
+def concatenateTracks(tracks):
+    trackOut = Track()
+    cumulativeTime = 0
+    for track in tracks:
+        for note in track.notes:
+            newNote = Note(note.pitch, note.start+cumulativeTime, note.duration)
+            trackOut.addNote(newNote)
+        cumulativeTime = cumulativeTime + track.length
+    return trackOut
+    
 def makeTrackFromMidi(midi):
     assert len(midi.tracks) == 1, "Midi file must contain only 1 track"
     track = Track()

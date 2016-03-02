@@ -86,6 +86,9 @@ class Melody():
     def addNote(self, pitch, newNote):
         self.pitches.append(pitch)
         self.newNotes.append(newNote)
+    
+    def length(self):
+        return len(self.pitches)
 
 def makeTrackMelody(track,plan):
     assert track.isMonophonic(), "Only monophonic tracks can be enscribed"
