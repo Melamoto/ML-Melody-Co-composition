@@ -8,6 +8,7 @@ import rhythm_hmm as rh
 import todd_ann as mel
 import numpy as np
 import midi
+import time
 
 class TrackDataSet:
     
@@ -23,14 +24,24 @@ class TrackDataSet:
         
 class MelodyGenerator:
     
-    def __init__(self, stateCount, layerSize):
+    def __init__(self, stateCount, layerSize, hmmIters=10):
         self.net = mel.buildToddNetwork(layerSize)
-        self.hmm = rh.buildHMM(stateCount)
+        self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters)
         self.stateCount = stateCount
         
     def train(self, epochs, ds):
         mel.trainNetwork(self.net, ds.melodyDS, epochs)
         self.hmm.fit(ds.rhythmSamps, ds.rhythmLens)
+        
+    def trainTimed(self, epochs, ds):
+        start = time.clock()
+        mel.trainNetwork(self.net, ds.melodyDS, epochs)
+        net = time.clock()
+        self.hmm.fit(ds.rhythmSamps, ds.rhythmLens)
+        hmm = time.clock()
+        print('Net: {}'.format(net-start))
+        print('HMM: {}'.format(hmm-net))
+        print('Total: {}'.format(hmm-start))
     
     def generate(self, track, timeCount):
         # Format data for prediction
