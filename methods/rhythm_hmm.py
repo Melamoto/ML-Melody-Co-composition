@@ -43,8 +43,8 @@ def makeRhythmSamples(rhythms):
     samples = samples.reshape(-1,1)
     return (samples,lengths)
 
-def buildHMM(num_states, n_iter=10):
-    model = MultinomialHMM(n_components=num_states, n_iter=n_iter)
+def buildHMM(num_states, n_iter=10, tol=0.01):
+    model = MultinomialHMM(n_components=num_states, n_iter=n_iter, tol=tol)
     model.n_features = 3
     return model
 

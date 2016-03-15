@@ -79,9 +79,10 @@ class Melody():
 
     def addSamples(self, dataSet):
         for s in range(len(self.pitches)-1):
-            dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s],
-                                             self.plan),
-                              makeNoteTarget(self.pitches[s+1]))
+            if self.pitches[s] != self.pitches[s+1]:
+                dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s],
+                                                 self.plan),
+                                  makeNoteTarget(self.pitches[s+1]))
 
     def addNote(self, pitch, newNote):
         self.pitches.append(pitch)
@@ -137,6 +138,8 @@ def trainNetwork(net, ds, epochs, momentum=0.4, weightdecay = 0.01):
     trainer = BackpropTrainer(net, dataset=ds, momentum=momentum, weightdecay=weightdecay)
     trainer.trainEpochs(epochs)
     
+"""
+% Old method, flawed
 def getNextPitches(net, startPitch, startBeat, beats, plan=0):
     noteCount = len(beats)
     notes = [0]*noteCount
@@ -154,4 +157,27 @@ def getNextPitches(net, startPitch, startBeat, beats, plan=0):
         lastBeat = (beats[i] == 1)
         notes[i] = lastPitch
     return notes
-    
+"""
+
+def getNextPitches(net, startPitch, pitchesDS, startBeat, beats, plan=0):
+    noteCount = len(beats)
+    notes = [0]*noteCount
+    net.reset()
+    for sample in pitchesDS.getSequenceIterator(0):
+        net.activate(sample[0])
+    lastPitch = startPitch
+    for i in range(noteCount):
+        # If a new note is being played, change the pitch
+        if beats[i] == 1:
+            nextSample = makeNoteSample(lastPitch,1,plan)
+            out = net.activate(nextSample)
+            lastPitch = max(enumerate(out),key=operator.itemgetter(1))[0]
+        # If the melody is silent, use no note
+        elif beats[i] == 0:
+            if lastPitch != nonPitch:
+                nextSample = makeNoteSample(nonPitch,0,plan)
+                net.activate(nextSample)
+            lastPitch = nonPitch
+        notes[i] = lastPitch
+    return notes
+        

@@ -9,6 +9,7 @@ import todd_ann as mel
 import numpy as np
 import midi
 import time
+from copy import deepcopy
 
 class TrackDataSet:
     
@@ -26,22 +27,44 @@ class MelodyGenerator:
     
     def __init__(self, stateCount, layerSize, hmmIters=10):
         self.net = mel.buildToddNetwork(layerSize)
-        self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters)
+        self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters, tol=0.00001)
         self.stateCount = stateCount
         
     def train(self, epochs, ds):
         mel.trainNetwork(self.net, ds.melodyDS, epochs)
-        self.hmm.fit(ds.rhythmSamps, ds.rhythmLens)
+        bestHMM = self.hmm
+        bestScore = 0
+        for i in range(20):
+            nextHMM = deepcopy(self.hmm)
+            nextHMM.fit(ds.rhythmSamps, ds.rhythmLens)
+            nextScore = nextHMM.score(ds.rhythmSamps, ds.rhythmLens)
+            if nextScore > bestScore:
+                bestHMM = nextHMM
+                bestScore = nextScore
+        self.hmm = bestHMM
         
     def trainTimed(self, epochs, ds):
         start = time.clock()
         mel.trainNetwork(self.net, ds.melodyDS, epochs)
         net = time.clock()
-        self.hmm.fit(ds.rhythmSamps, ds.rhythmLens)
+        bestHMM = self.hmm
+        bestScore = -np.inf
+        bestI = -1
+        for i in range(10):
+            nextHMM = deepcopy(self.hmm)
+            nextHMM.fit(ds.rhythmSamps, ds.rhythmLens)
+            nextScore = nextHMM.score(ds.rhythmSamps, ds.rhythmLens)
+            # print('Score {}: {}'.format(i,nextScore))
+            if nextScore > bestScore:
+                bestHMM = nextHMM
+                bestScore = nextScore
+                bestI = i
+        self.hmm = bestHMM
         hmm = time.clock()
         print('Net: {}'.format(net-start))
         print('HMM: {}'.format(hmm-net))
         print('Total: {}'.format(hmm-start))
+        # print('Best: {} : {}'.format(bestI,bestScore))
     
     def generate(self, track, timeCount):
         # Format data for prediction
@@ -56,10 +79,11 @@ class MelodyGenerator:
         tempProbs = self.hmm.startprob_
         self.hmm.startprob_ = startProbs
         rhythmOutTS = np.concatenate(self.hmm.sample(timeCount)[0])
-        self.net.reset()
-        for sample in melodyDS.getSequenceIterator(0):
-            self.net.activate(sample[0])
-        pitchOutTS = mel.getNextPitches(self.net, melody.pitches[-1],
+        #self.net.reset()
+        #for sample in melodyDS.getSequenceIterator(0):
+        #    self.net.activate(sample[0])
+        #Whatever
+        pitchOutTS = mel.getNextPitches(self.net, melody.pitches[-1], melodyDS,
                                         rhythm.timesteps[-1], rhythmOutTS)
         # Load output into classes
         rhythmOut = rh.Rhythm()
