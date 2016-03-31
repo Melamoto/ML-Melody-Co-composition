@@ -29,6 +29,7 @@ class MelodyGenerator:
         self.net = mel.buildToddNetwork(layerSize)
         self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters, tol=0.00001)
         self.stateCount = stateCount
+        self.distTheta = []
         
     def train(self, epochs, ds):
         mel.trainNetwork(self.net, ds.melodyDS, epochs)

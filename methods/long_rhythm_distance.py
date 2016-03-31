@@ -5,6 +5,7 @@ A hamming-distance-based model for predicting long term rhythmic patterns
 from rhythm_hmm import Rhythm
 import math
 import numpy as np
+from scipy.cluster.vq import vq, kmeans, whiten
 
 class StructuredRhythm(Rhythm):
     
@@ -14,6 +15,42 @@ class StructuredRhythm(Rhythm):
     
     def bars(self):
         return math.ceil(len(self.timesteps)/self.ticksPerBar)
+
+class RhythmDistanceModel:
+    
+    def __init__(self, partitions, rhyLen, barLen, clusterCount):
+        self.partitions = partitions
+        self.rhyLen = rhyLen
+        self.barLen = barLen
+        self.weights = np.zeros((rhyLen,rhyLen,clusterCount))
+        self.probs = np.zeros((rhyLen,rhyLen,clusterCount))
+        self.clusterCount = clusterCount
+        
+    def train(self, srhythms):
+        for rhy in srhythms:
+            assert rhy.bars() == self.rhyLen, "Rhythms must have correct number of measures"
+            assert rhy.ticksPerBar == self.barLen, "Rhythm measures must have correct length"
+        for i in range(self.rhyLen-1):
+            for j in range(i+1,self.rhyLen):
+                # Initialise parameter estimates
+                ijDS = np.zeros(len(srhythms))
+                for r in range(len(srhythms)):
+                    dist = distance(srhythms[r], i, j)
+                    a = alphaDist(srhythms[r], i, j)
+                    b = betaDist(srhythms[r], i, j)
+                    if a - b == 0:
+                       ijDS[r] = 0
+                    else:
+                       ijDS[r] = (dist - b)/(a - b)
+                centroids = kmeans(ijDS, self.clusterCount)[0]
+                code = vq(ijDS, centroids)[0]
+                for k in range(clusterCount):
+                    n = sum(c == k for c in code)
+                    self.weights[i][j][k] = n / len(ijDS)
+                    self.probs[i][j][k] = centroids[k]
+                # Use iterative EM to refine parameters
+                
+        return 0
 
 def makeTrackStructuredRhythm(track, ticksPerBar):
     assert track.isMonophonic(), "Only monophonic tracks can be enscribed"
