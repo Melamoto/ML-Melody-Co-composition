@@ -6,6 +6,7 @@ from rhythm_hmm import Rhythm
 import math
 import numpy as np
 from scipy.cluster.vq import vq, kmeans, whiten
+from scipy.stats import binom
 
 class StructuredRhythm(Rhythm):
     
@@ -26,7 +27,7 @@ class RhythmDistanceModel:
         self.probs = np.zeros((rhyLen,rhyLen,clusterCount))
         self.clusterCount = clusterCount
         
-    def train(self, srhythms):
+    def train(self, srhythms, convergence=0.01, maxIters=1000):
         for rhy in srhythms:
             assert rhy.bars() == self.rhyLen, "Rhythms must have correct number of measures"
             assert rhy.ticksPerBar == self.barLen, "Rhythm measures must have correct length"
@@ -44,12 +45,43 @@ class RhythmDistanceModel:
                        ijDS[r] = (dist - b)/(a - b)
                 centroids = kmeans(ijDS, self.clusterCount)[0]
                 code = vq(ijDS, centroids)[0]
-                for k in range(clusterCount):
+                for k in range(self.clusterCount):
                     n = sum(c == k for c in code)
                     self.weights[i][j][k] = n / len(ijDS)
                     self.probs[i][j][k] = centroids[k]
                 # Use iterative EM to refine parameters
-                
+                converged = False
+                iters = 0
+                while (not converged) and (iters < maxIters):
+                    converged = True
+                    iters += 1
+                    clusterProbs = np.zeros((len(self.clusterCount),len(srhythms)))
+                    for k in range(self.clusterCount):
+                        for r in range(len(srhythms)):
+                            dist = distance(srhythms[r], i, j)
+                            a = alphaDist(srhythms[r], i, j)
+                            b = betaDist(srhythms[r], i, j)
+                            clusterProbs[k][r] = self.weights[i][j][k] * binomialDistanceProb(dist,a,b,self.probs[i][j][k])
+                    # Normalize cluster probabilities s.t. the total prob 
+                    # across clusters for a given rhythm is 1
+                    np.divide(clusterProbs, np.sum(clusterProbs,0))
+                    for k in range(self.clusterCount):
+                        numerator = 0.0
+                        denominator = 0.0
+                        for r in range(len(srhythms)):
+                            dist = distance(srhythms[r], i, j)
+                            a = alphaDist(srhythms[r], i, j)
+                            b = betaDist(srhythms[r], i, j)
+                            numerator += (dist - b) * clusterProbs[k][r]
+                            denominator += (a - b) * clusterProbs[k][r]
+                        oldProb = self.probs[i][j][k]
+                        oldWeight = self.weights[i][j][k]
+                        self.probs[i][j][k] = numerator/denominator
+                        self.weights[i][j][k] = np.sum(clusterProbs[k])/len(srhythms)
+                        if abs(self.probs[i][j][k]-oldProb)/self.probs[i][j][k] > convergence:
+                            converged = False
+                        if abs(self.weights[i][j][k]-oldWeight)/self.weights[i][j][k] > convergence:
+                            converged = False
         return 0
 
 def makeTrackStructuredRhythm(track, ticksPerBar):
@@ -104,3 +136,9 @@ def betaDist(sRhythm, barA, barB):
         if iBeta > beta:
             beta = iBeta
     return beta
+
+def binomialDistanceProb(dist, alpha, beta, prob):
+    if alpha - beta == 0:
+        return 1
+    return binom.pmf(dist, alpha - beta, prob)
+        
