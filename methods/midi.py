@@ -7,7 +7,7 @@ from mido import MidiFile
 from mido import MidiTrack
 import mido
 
-timestepsPerBeat = 16
+timestepsPerBeat = 32
 
 def rescaleToTimesteps(ticks_per_beat, time):
     return round((time/ticks_per_beat)*timestepsPerBeat)
@@ -55,12 +55,11 @@ def concatenateTracks(tracks):
         cumulativeTime = cumulativeTime + track.length
     return trackOut
     
-def makeTrackFromMidi(midi):
-    assert len(midi.tracks) == 1, "Midi file must contain only 1 track"
+def makeTrackFromMidi(mid, trackNum):
     track = Track()
     currentTime = 0
     lastNoteStarted = [0]*128
-    for message in midi.tracks[0]:
+    for message in mid.tracks[trackNum]:
         currentTime = currentTime + message.time
         if message.type == 'note_on' or message.type == 'note_off':
             pitch = message.note
@@ -70,9 +69,9 @@ def makeTrackFromMidi(midi):
             # Note goes off
             else:
                 difference = currentTime - lastNoteStarted[message.note]
-                note = Note(pitch, rescaleToTimesteps(midi.ticks_per_beat,
+                note = Note(pitch, rescaleToTimesteps(mid.ticks_per_beat,
                                                       lastNoteStarted[pitch]),
-                            rescaleToTimesteps(midi.ticks_per_beat,difference))
+                            rescaleToTimesteps(mid.ticks_per_beat,difference))
                 track.addNote(note)
     return track
     
