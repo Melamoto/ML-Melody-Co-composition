@@ -5,6 +5,7 @@ melody processing
 """
 
 import rhythm_hmm as rh
+import long_rhythm_distance as lrd
 import todd_ann as mel
 import numpy as np
 import midi
@@ -21,27 +22,30 @@ class TrackDataSet:
             rhythms[i] = rh.makeTrackRhythm(t)
             melodies[i] = mel.makeTrackMelody(t,0)
         (self.rhythmSamps,self.rhythmLens) = rh.makeRhythmSamples(rhythms)
+        self.rhythmTimesteps = [r.timesteps for r in rhythms]
         self.melodyDS = mel.makeMelodyDataSet(melodies)
         
 class MelodyGenerator:
     
-    def __init__(self, stateCount, layerSize, hmmIters=10):
+    def __init__(self, stateCount, layerSize, hmmIters=1000, rhyLen, barLen, clusterCount):
         self.net = mel.buildToddNetwork(layerSize)
         self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters, tol=0.00001)
+        self.rdm = lrd.RhythmDistanceModel(rhyLen, barLen, clusterCount)
         self.stateCount = stateCount
         self.distTheta = []
         
-    def train(self, epochs, ds):
-        mel.trainNetwork(self.net, ds.melodyDS, epochs)
+    def train(self, epochs, trackDS):
+        mel.trainNetwork(self.net, trackDS.melodyDS, epochs)
         bestHMM = self.hmm
         bestScore = 0
         for i in range(20):
             nextHMM = deepcopy(self.hmm)
-            nextHMM.fit(ds.rhythmSamps, ds.rhythmLens)
-            nextScore = nextHMM.score(ds.rhythmSamps, ds.rhythmLens)
+            nextHMM.fit(trackDS.rhythmSamps, trackDS.rhythmLens)
+            nextScore = nextHMM.score(trackDS.rhythmSamps, trackDS.rhythmLens)
             if nextScore > bestScore:
                 bestHMM = nextHMM
                 bestScore = nextScore
+        self.rdm.train(trackDS.rhythmTimesteps)
         self.hmm = bestHMM
         
     def trainTimed(self, epochs, ds):
@@ -62,24 +66,21 @@ class MelodyGenerator:
                 bestI = i
         self.hmm = bestHMM
         hmm = time.clock()
+        self.rdm.train(trackDS.rhythmTimesteps)
+        rdm = time.clock()
         print('Net: {}'.format(net-start))
         print('HMM: {}'.format(hmm-net))
-        print('Total: {}'.format(hmm-start))
+        print('RDM: {}'.format(rdm-hmm))
+        print('Total: {}'.format(rdm-start))
         # print('Best: {} : {}'.format(bestI,bestScore))
     
-    def generate(self, track, timeCount):
+    def generate(self, track, timeCount, rdmLam=1.0):
         # Format data for prediction
         rhythm = rh.makeTrackRhythm(track)
         melody = mel.makeTrackMelody(track,0)
-        (rhythmSamps,rhythmLens) = rh.makeRhythmSamples([rhythm])
         melodyDS = mel.makeMelodyDataSet([melody])
         # Generate notes
-        startState = self.hmm.predict(rhythmSamps)[-1]
-        startProbs = [0]*self.stateCount
-        startProbs[startState] = 1.0
-        tempProbs = self.hmm.startprob_
-        self.hmm.startprob_ = startProbs
-        rhythmOutTS = np.concatenate(self.hmm.sample(timeCount)[0])
+        rhythmOutTS = rdm.generateNextBar(self.rdm, self.hmm, rdmLam, rhythm.timesteps)
         #self.net.reset()
         #for sample in melodyDS.getSequenceIterator(0):
         #    self.net.activate(sample[0])
@@ -94,8 +95,6 @@ class MelodyGenerator:
             rhythmOut.addTimestep(rhythmOutTS[t])
             newNote = (rhythmOutTS[t] == 1)
             pitchOut.addNote(pitchOutTS[t],newNote)
-        # Return
-        self.hmm.startprob_ = tempProbs
         return (rhythmOut,pitchOut)
         
 def makeTrackFromRhythmMelody(rhythm, melody, octave):

@@ -13,7 +13,7 @@ def loadMidis(path):
     midis = [MidiFile(join(path, m)) for m in listdir(path) if isfile(join(path, m)) and m[-4:]=='.mid']
     return midis
 
-def loadMidisAndTrainGenerator(path, hiddenStates, hiddenLayer, netEpochs, hmmIters=10):
+def loadMidisAndTrainGenerator(path, hiddenStates, hiddenLayer, netEpochs, hmmIters=1000):
     midis = loadMidis(path)
     tracks = [midi.makeTrackFromMidi(m,0) for m in midis]
     trackDS = rm.TrackDataSet(tracks)
