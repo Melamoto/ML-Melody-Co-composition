@@ -7,6 +7,7 @@ import math
 import numpy as np
 from scipy.cluster.vq import vq, kmeans
 from scipy.stats import binom
+import pdb
 
 class StructuredRhythm(Rhythm):
     
@@ -19,39 +20,42 @@ class StructuredRhythm(Rhythm):
 
 class RhythmDistanceModel:
     
-    def __init__(self, rhyLen, barLen, clusterCount, partitions=None):
+    def __init__(self, barLen, barCount, clusterCount, partitions=None):
         self.partitions = partitions
-        self.rhyLen = rhyLen
+        self.barCount = barCount
         self.barLen = barLen
-        self.weights = np.zeros((rhyLen,rhyLen,clusterCount))
-        self.probs = np.zeros((rhyLen,rhyLen,clusterCount))
+        self.weights = np.zeros((barCount,barCount,clusterCount))
+        self.probs = np.zeros((barCount,barCount,clusterCount))
         self.clusterCount = clusterCount
         self.converged = False
+        self.minimumDistanceProb = 1/(self.barLen+1)
+        self.maximumDistanceProb = 1 - self.minimumDistanceProb
         
-    def train(self, rhythms, convergence=0.00001, maxIters=1000):
+    def train(self, rhythms, convergence=0.000001, maxIters=10000):
         for rhy in rhythms:
-            assert len(rhy) == self.rhyLen*self.barLen, "Rhythms must correct number of measures and length"
-        for i in range(self.rhyLen-1):
-            for j in range(i+1,self.rhyLen):
-                # TODO: Clean these variables up
-                dists = [distance(rhythms[r], i, j, self.barLen) for r in rhythms]
-                alphas = [alphaDist(rhythms[r], i, j, self.barLen) for r in rhythms]
-                betas = [betaDist(rhythms[r], i, j, self.barLen) for r in rhythms]
+            assert len(rhy) == self.barCount*self.barLen, "Rhythms must correct number of measures and length"
+        for i in range(self.barCount-1):
+            for j in range(i+1,self.barCount):
+                #pdb.set_trace()
+                dists = [distance(r, i, j, self.barLen) for r in rhythms]
+                alphas = [alphaDist(r, i, j, self.barLen) for r in rhythms]
+                betas = [betaDist(r, i, j, self.barLen) for r in rhythms]
                 # Initialise parameter estimates
                 ijDS = np.zeros(len(rhythms))
                 for r in range(len(rhythms)):
-                    dist = distance(rhythms[r], i, j, self.barLen)
-                    a = alphaDist(rhythms[r], i, j, self.barLen)
-                    b = betaDist(rhythms[r], i, j, self.barLen)
-                    if a - b == 0:
+                    if alphas[r] - betas[r] == 0:
                        ijDS[r] = 0
                     else:
-                       ijDS[r] = (dist - b)/(a - b)
+                       ijDS[r] = (dists[r] - betas[r])/(alphas[r] - betas[r])
+                    ijDS[r] = max(min(ijDS[r],self.maximumDistanceProb),self.minimumDistanceProb)
                 centroids = kmeans(ijDS, self.clusterCount)[0]
+                # TODO: Bit of a hack, but necessary in some form
+                while len(centroids) < self.clusterCount:
+                    centroids = np.append(centroids, centroids[-1])
                 code = vq(ijDS, centroids)[0]
                 for k in range(self.clusterCount):
                     n = sum(c == k for c in code)
-                    self.weights[i][j][k] = n / len(ijDS)
+                    self.weights[i][j][k] = n / len(rhythms)
                     self.probs[i][j][k] = centroids[k]
                 # Use iterative EM to refine parameters
                 converged = False
@@ -59,19 +63,18 @@ class RhythmDistanceModel:
                 while (not converged) and (iters < maxIters):
                     converged = True
                     iters += 1
-                    clusterProbs = np.zeros((len(self.clusterCount),len(rhythms)))
+                    clusterProbs = np.zeros((self.clusterCount,len(rhythms)))
                     for k in range(self.clusterCount):
                         for r in range(len(rhythms)):
-                            dist = distance(rhythms[r], i, j, self.barLen)
-                            a = alphaDist(rhythms[r], i, j, self.barLen)
-                            b = betaDist(rhythms[r], i, j, self.barLen)
                             """
                             TODO: Not sure about using this; the paper says to
                             use dist but I think it's a typo - it doesn't make
                             that much sense otherwise
                             """
-                            sigma = dist - b
-                            clusterProbs[k][r] = self.weights[i][j][k] * binomialDistanceProb(sigma,a,b,self.probs[i][j][k])
+                            sigma = dists[r] - betas[r]
+                            clusterProbs[k][r] = (
+                                self.weights[i][j][k] *
+                                self.gradientBinomialDistanceProb(sigma,alphas[r],betas[r],self.probs[i][j][k]))
                     # Normalize cluster probabilities s.t. the total prob 
                     # across clusters for a given rhythm is 1
                     np.divide(clusterProbs, np.sum(clusterProbs,0))
@@ -79,14 +82,18 @@ class RhythmDistanceModel:
                         numerator = 0.0
                         denominator = 0.0
                         for r in range(len(rhythms)):
-                            dist = distance(rhythms[r], i, j, self.barLen)
-                            a = alphaDist(rhythms[r], i, j, self.barLen)
-                            b = betaDist(rhythms[r], i, j, self.barLen)
-                            numerator += (dist - b) * clusterProbs[k][r]
-                            denominator += (a - b) * clusterProbs[k][r]
+                            numerator += (dists[r] - betas[r]) * clusterProbs[k][r]
+                            denominator += (alphas[r] - betas[r]) * clusterProbs[k][r]
                         oldProb = self.probs[i][j][k]
                         oldWeight = self.weights[i][j][k]
-                        self.probs[i][j][k] = numerator/denominator
+                        if denominator == 0:
+                            self.probs[i][j][k] = 0
+                        else:
+                            self.probs[i][j][k] = numerator/denominator
+                        self.probs[i][j][k] = max(min(
+                            self.probs[i][j][k],
+                            self.maximumDistanceProb),
+                            self.minimumDistanceProb)
                         self.weights[i][j][k] = np.sum(clusterProbs[k])/len(rhythms)
                         if abs(self.probs[i][j][k]-oldProb)/self.probs[i][j][k] > convergence:
                             converged = False
@@ -100,30 +107,51 @@ class RhythmDistanceModel:
         assert len(rhythm) % self.barLen == 0, "Rhythm length must be divisible by bar length"
         assert len(bar) == self.barLen, "Input bar has incorrect length"
         totalProb = 0.0
-        combinedRhythm = rhythm + bar
-        j = (len(rhythm) / self.barLen)
+        combinedRhythm = np.concatenate([rhythm, bar])
+        j = int(len(rhythm) / self.barLen)
         for i in range(j):
-            dist = distance(combinedRhythm, i, j)
-            alpha = alphaDist(combinedRhythm, i, j)
-            beta = betaDist(combinedRhythm, i, j)
+            dist = distance(combinedRhythm, i, j, self.barLen)
+            alpha = alphaDist(combinedRhythm, i, j, self.barLen)
+            beta = betaDist(combinedRhythm, i, j, self.barLen)
             sigma = dist - beta
             iProb = 0.0
             for k in range(self.clusterCount):
-                iProb += self.weights[i][j][k] * binomialDistanceProb(sigma,alpha,beta,self.probs[i][j][k])
+                iProb += self.weights[i][j][k] * self.gradientBinomialDistanceProb(sigma,alpha,beta,self.probs[i][j][k])
             totalProb += np.log(iProb)
         return totalProb
+    
+    # As binomialDistanceProb below, but adds a gradient to impossible distance
+    # value probabilities, so that all probabilities are non-zero and "more 
+    # impossible" values have lower probability
+    def gradientBinomialDistanceProb(self, sigma, alpha, beta, prob):
+        if alpha - beta == 0:
+            if sigma == 0:
+                return 1
+            else:
+                return self.minimumDistanceProb**(1+sigma)
+        return max(min(
+            binom.pmf(sigma, alpha - beta, prob),
+            self.maximumDistanceProb),
+            self.minimumDistanceProb)
         
 
 def generateNextBar(rdm, hmm, lam, rhythm, partitions=None):
-    assert rhythm.length() % rdm.barLen == 0, "Rhythm length must be divisible by bar length"
-    assert rhythm.length() < rdm.barLen * rdm.rhyLen, "Rhythm length must be less than distance model maximum"
-    (rhythmSamps,rhythmLens) = makeRhythmSamples([rhythm])
+    assert len(rhythm) % rdm.barLen == 0, "Rhythm length must be divisible by bar length"
+    assert len(rhythm) < rdm.barLen * rdm.barCount, "Rhythm length must be less than distance model maximum"
     # Generate notes
-    startStateProbs = hmm.predict_proba(rhythmSamps)[-1]
+    # TODO: Use predict_proba instead to achieve a more accurate range of results
+    #startState = hmm.predict(rhythm)[-1]
+    #startStateProbs = [0]*len(hmm.startprob_)
+    #startStateProbs[startState] = 1.0
+    startStateProbs = hmm.predict_proba(rhythm)[-1]
+    pdb.set_trace()
     tempProbs = hmm.startprob_
     hmm.startprob_ = startStateProbs
-    barOut = np.concatenate(hmm.sample(rdm.barLen)[0])
+    startSymbol = hmm.sample(1)[0][0]
+    barOut = np.concatenate(hmm.sample(rdm.barLen+1)[0])[1:]
+    rhythmSteps = np.concatenate(rhythm)
     end = False
+    #pdb.set_trace()
     while end == False:
         end = True
         for j in range(rdm.barLen):
@@ -133,8 +161,8 @@ def generateNextBar(rdm, hmm, lam, rhythm, partitions=None):
             for newVal in range(3):
                 newBar = barOut
                 newBar[j] = newVal
-                hmmScore = hmm.score(newBar)
-                distScore = rdm.score(rhythm.timesteps, newBar)
+                hmmScore = hmm.score(np.concatenate([startSymbol,newBar]).reshape(-1,1))
+                distScore = rdm.score(rhythmSteps, newBar)
                 newScore = hmmScore + (lam * distScore)
                 if newScore > bestScore:
                     bestScore = newScore
@@ -143,7 +171,7 @@ def generateNextBar(rdm, hmm, lam, rhythm, partitions=None):
             # Converge only when no values are changed
             if bestVal != startVal:
                 end = False
-    hmm.startrob_ = tempProbs
+    hmm.startprob_ = tempProbs
     return barOut
 
 def makeTrackStructuredRhythm(track, ticksPerBar):
@@ -179,6 +207,8 @@ def alphaDist(rhythm, barA, barB, ticksPerBar):
     if barA > barB:
         greater = barA
         lesser = barB
+    if lesser == 0:
+        return distance(rhythm, barA, barB, ticksPerBar)
     alpha = math.inf
     for i in range(lesser):
         iAlpha = distance(rhythm, lesser, i, ticksPerBar) + distance(rhythm, greater, i, ticksPerBar)
@@ -192,6 +222,8 @@ def betaDist(rhythm, barA, barB, ticksPerBar):
     if barA > barB:
         greater = barA
         lesser = barB
+    if lesser == 0:
+        return distance(rhythm, barA, barB, ticksPerBar)
     beta = -math.inf
     for i in range(lesser):
         iBeta = abs(distance(rhythm, lesser, i, ticksPerBar) - distance(rhythm, greater, i, ticksPerBar))
@@ -204,8 +236,9 @@ def binomialDistanceProb(sigma, alpha, beta, prob):
         if sigma == 0:
             return 1
         else:
-            # TODO: This causes a gradient of 0 among "impossible" distance
-            # values - making gradient ascent impossible.Fix this maybe.
+            # This causes a gradient of 0 among "impossible" distance
+            # values - making gradient ascent impossible. For cases where 
+            # gradient ascent is needed, use gradientBinomialDistanceProb
             return 0
     return binom.pmf(sigma, alpha - beta, prob)
         

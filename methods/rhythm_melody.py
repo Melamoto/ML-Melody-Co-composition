@@ -11,6 +11,11 @@ import numpy as np
 import midi
 import time
 from copy import deepcopy
+import pdb
+import pickle
+
+# Temp
+mel.planCount = 1
 
 class TrackDataSet:
     
@@ -27,10 +32,10 @@ class TrackDataSet:
         
 class MelodyGenerator:
     
-    def __init__(self, stateCount, layerSize, hmmIters=1000, rhyLen, barLen, clusterCount):
+    def __init__(self, stateCount, layerSize, barLen, barCount, clusterCount, hmmIters=1000,):
         self.net = mel.buildToddNetwork(layerSize)
         self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters, tol=0.00001)
-        self.rdm = lrd.RhythmDistanceModel(rhyLen, barLen, clusterCount)
+        self.rdm = lrd.RhythmDistanceModel(barLen, barCount, clusterCount)
         self.stateCount = stateCount
         self.distTheta = []
         
@@ -50,8 +55,12 @@ class MelodyGenerator:
         
     def trainTimed(self, epochs, ds):
         start = time.clock()
+        self.rdm.train(ds.rhythmTimesteps)
+        rdm = time.clock()
+        print('RDM: {}'.format(rdm-start))
         mel.trainNetwork(self.net, ds.melodyDS, epochs)
         net = time.clock()
+        print('Net: {}'.format(net-rdm))
         bestHMM = self.hmm
         bestScore = -np.inf
         bestI = -1
@@ -66,21 +75,20 @@ class MelodyGenerator:
                 bestI = i
         self.hmm = bestHMM
         hmm = time.clock()
-        self.rdm.train(trackDS.rhythmTimesteps)
-        rdm = time.clock()
-        print('Net: {}'.format(net-start))
+        print('RDM: {}'.format(rdm-start))
+        print('Net: {}'.format(net-rdm))
         print('HMM: {}'.format(hmm-net))
-        print('RDM: {}'.format(rdm-hmm))
-        print('Total: {}'.format(rdm-start))
+        print('Total: {}'.format(hmm-start))
         # print('Best: {} : {}'.format(bestI,bestScore))
     
-    def generate(self, track, timeCount, rdmLam=1.0):
+    def generateBar(self, track, rdmLam=4.0):
         # Format data for prediction
         rhythm = rh.makeTrackRhythm(track)
+        (rhythmSamps,_) = rh.makeRhythmSamples([rhythm])
         melody = mel.makeTrackMelody(track,0)
         melodyDS = mel.makeMelodyDataSet([melody])
         # Generate notes
-        rhythmOutTS = rdm.generateNextBar(self.rdm, self.hmm, rdmLam, rhythm.timesteps)
+        rhythmOutTS = lrd.generateNextBar(self.rdm, self.hmm, rdmLam, rhythmSamps)
         #self.net.reset()
         #for sample in melodyDS.getSequenceIterator(0):
         #    self.net.activate(sample[0])
@@ -92,11 +100,25 @@ class MelodyGenerator:
         pitchOut = mel.Melody(0)
         t = 0
         for t in range(len(rhythmOutTS)):
-            rhythmOut.addTimestep(rhythmOutTS[t])
+            rhythm.addTimestep(rhythmOutTS[t])
             newNote = (rhythmOutTS[t] == 1)
-            pitchOut.addNote(pitchOutTS[t],newNote)
-        return (rhythmOut,pitchOut)
+            melody.addNote(pitchOutTS[t],newNote)
+        return (rhythm,melody)
+
+    # Saves the melody generator's learned characteristics to a file to be loaded later        
+    def save(self, filename):
+        file = open(filename, "wb")
+        pickle.dump(self, file)
+        file.close()
         
+def loadMelodyGenerator(filename):
+    file = open(filename, 'r')
+    mg = pickle.load(file)
+    file.close()
+    mg.net.sorted = False
+    mg.net.sortModules()
+    return mg
+
 def makeTrackFromRhythmMelody(rhythm, melody, octave):
     assert rhythm.length() == melody.length(), "Rhythm and melody must have equal lengths"
     track = midi.Track()

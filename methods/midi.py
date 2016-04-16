@@ -8,7 +8,7 @@ from mido import MidiTrack
 import mido
 import pdb
 
-timestepsPerBeat = 32
+timestepsPerBeat = 4
 
 def rescaleToTimesteps(ticks_per_beat, time):
     return round((time/ticks_per_beat)*timestepsPerBeat)
