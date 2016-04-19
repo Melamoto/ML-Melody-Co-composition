@@ -144,14 +144,12 @@ def generateNextBar(rdm, hmm, lam, rhythm, partitions=None):
     #startStateProbs = [0]*len(hmm.startprob_)
     #startStateProbs[startState] = 1.0
     startStateProbs = hmm.predict_proba(rhythm)[-1]
-    pdb.set_trace()
     tempProbs = hmm.startprob_
     hmm.startprob_ = startStateProbs
     startSymbol = hmm.sample(1)[0][0]
     barOut = np.concatenate(hmm.sample(rdm.barLen+1)[0])[1:]
     rhythmSteps = np.concatenate(rhythm)
     end = False
-    #pdb.set_trace()
     while end == False:
         end = True
         for j in range(rdm.barLen):

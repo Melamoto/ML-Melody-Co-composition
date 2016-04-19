@@ -29,9 +29,12 @@ class Note:
 
 class Track:
     
-    def __init__(self):
+    def __init__(self, notes=None):
         self.notes = []
         self.length = 0
+        if not notes is None:
+            for n in notes:
+                self.addNote(n)
        
     def addNote(self, note):
         self.notes.append(note)
