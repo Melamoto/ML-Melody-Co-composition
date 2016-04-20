@@ -189,6 +189,3 @@ def loadMidisAndGenerate(path, generator):
     trackEndings = [rm.makeTrackFromRhythmMelody(r,m,6) for r,m in generated]
     return trackEndings
     
-root = tk.Tk()
-app = Application(master=root)
-app.mainloop()

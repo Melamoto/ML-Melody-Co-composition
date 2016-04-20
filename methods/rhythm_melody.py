@@ -112,7 +112,7 @@ class MelodyGenerator:
         file.close()
         
 def loadMelodyGenerator(filename):
-    file = open(filename, 'r')
+    file = open(filename, 'rb')
     mg = pickle.load(file)
     file.close()
     mg.net.sorted = False

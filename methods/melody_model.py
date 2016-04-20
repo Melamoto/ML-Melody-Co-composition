@@ -5,30 +5,31 @@
 Elman Network with Chaotic Inspiration
 """
 
-from pybrain.structure import LinearLayer, SigmoidLayer
+from pybrain.structure import LinearLayer, SigmoidLayer, LSTMLayer
 from pybrain.structure import RecurrentNetwork
 from pybrain.structure import FullConnection, IdentityConnection
 from pybrain.datasets.sequential import SequentialDataSet
 from pybrain.supervised.trainers import BackpropTrainer
+from pybrain.tools.shortcuts import buildNetwork
 from scipy import dot
 import operator
 import midi
 import numpy as np
 
-ShortestNoteDenominator = midi.timestepsPerBeat * 2
+ShortestNoteDenominator = midi.timestepsPerBeat * 4
 
 def durationLen():
-    return np.ceil(np.log2(ShortestNoteDenominator))
+    return int(np.ceil(np.log2(ShortestNoteDenominator)))
 
 def sampleSize():
-    return (
+    return int(
         7 +           # Pitch
         2 +           # Octave
         durationLen() # Duration
     )
     
 def outputSize():
-    return(
+    return int(
         7 +           # Pitch
         2 +           # Octave
         durationLen() # Duration
@@ -36,8 +37,8 @@ def outputSize():
 
 # TODO: upgrade to use Gray Code
 def getDurationString(maxLen, val):
-    string = bin(val)[2:]
-    assert len(string) <= maxLen, "Val must be smaller than 2^maxLen"
+    string = bin(val-1)[2:]
+    assert len(string) <= maxLen, "Val must be at most than 2^maxLen"
     paddedString = '0'*(maxLen - len(string)) + string
     return paddedString
     
@@ -48,7 +49,7 @@ def getDurationValue(string):
         val *= 2
         if c == '1':
             val += 1
-    return val
+    return val+1
 
 def makeNoteSample(pitch, duration):
     sample = [int(0)] * sampleSize()
@@ -99,6 +100,26 @@ def getPitchDurationFromSample(sample):
         durationString += str(sample[i])
     duration = getDurationValue(durationString)
     return (pitch,duration)
+    
+def normalizeOutputSample(sample, durationThreshold=0.5, octaveThreshold=0.5):
+    normalSample = [int(0)] * outputSize()
+    majorThirdPitch = max(enumerate(sample[0:4]),key=operator.itemgetter(1))[0]
+    minorThirdPitch = max(enumerate(sample[4:7]),key=operator.itemgetter(1))[0]
+    octave = 5
+    if sample[7] >= octaveThreshold or sample[8] >= octaveThreshold:
+        if sample[7] > sample[8]:
+            octave = 4
+        else:
+            octave = 6
+    normalSample[majorThirdPitch] = 1
+    normalSample[4+minorThirdPitch] = 1
+    if octave == 4:
+        normalSample[7] = 1
+    elif octave == 6:
+        normalSample[8] = 1
+    normalSample[9:] = [int(x >= durationThreshold) for x in sample[9:]]
+    return normalSample
+    
 
 class Melody():
     def __init__(self):
@@ -117,7 +138,7 @@ class Melody():
     def length(self):
         return len(self.pitches)
 
-def makeTrackMelody(track,plan):
+def makeTrackMelody(track):
     assert track.isMonophonic(), "Only monophonic tracks can be enscribed"
     melody = Melody()
     for n in track.notes:
@@ -131,10 +152,11 @@ def makeMelodyDataSet(melodies):
         m.addSamples(seqDataSet)
     return seqDataSet
 
-def buildElmanNetwork(hiddenSize):
+def buildLstmNetwork(hiddenSize):
+    """
     net = RecurrentNetwork()
     inLayer = LinearLayer(sampleSize())
-    hiddenLayer = SigmoidLayer(hiddenSize)
+    hiddenLayer = LSTMLayer(hiddenSize)
     outLayer = SigmoidLayer(outputSize())
     net.addInputModule(inLayer)
     net.addModule(hiddenLayer)
@@ -145,32 +167,36 @@ def buildElmanNetwork(hiddenSize):
     net.addRecurrentConnection(hiddenRecursive)
     net.addConnection(inToHidden)
     net.addConnection(hiddenToOut)
+    """
+    net = buildNetwork(sampleSize(), hiddenSize, outputSize(), hiddenclass=LSTMLayer, recurrent=True)
     net.sortModules()
+    net.randomize()
     return net
     
-def trainNetwork(net, ds, epochs, momentum=0.4, weightdecay = 0.01):
-    trainer = BackpropTrainer(net, dataset=ds, momentum=momentum, weightdecay=weightdecay)
+def trainNetwork(net, ds, epochs, learningrate = 0.01, momentum=0.4, weightdecay = 0.0):
+    trainer = BackpropTrainer(net,
+                              dataset=ds,
+                              learningrate=learningrate,
+                              momentum=momentum,
+                              weightdecay=weightdecay)
     trainer.trainEpochs(epochs)
 
-def getNextNotes(net, startPitch, pitchesDS, length):
-    notes = []
+def getNextNotes(net, pitchesDS, length):
     net.reset()
+    pitches = []
+    durations = []
+    lastOutput = []
+    normalizedOutput = []
+    totalDuration = 0
     for sample in pitchesDS.getSequenceIterator(0):
-        net.activate(sample[0])
-    lastPitch
-    lastDuration
-    for i in range(noteCount):
-        # If a new note is being played, change the pitch
-        if beats[i] == 1:
-            nextSample = makeNoteSample(lastPitch,1,plan)
-            out = net.activate(nextSample)
-            lastPitch = max(enumerate(out),key=operator.itemgetter(1))[0]
-        # If the melody is silent, use no note
-        elif beats[i] == 0:
-            if lastPitch != nonPitch:
-                nextSample = makeNoteSample(nonPitch,0,plan)
-                net.activate(nextSample)
-            lastPitch = nonPitch
-        notes[i] = lastPitch
-    return notes
+        lastOutput = net.activate(sample[0])
+    while totalDuration < length:
+        normalizedOutput = normalizeOutputSample(lastOutput)
+        (pitch, duration) = getPitchDurationFromSample(normalizedOutput)
+        totalDuration += duration
+        pitches.append(pitch)
+        durations.append(duration)
+        lastOutput = net.activate(normalizedOutput)
+    #durations[-1] -= (totalDuration - length)
+    return (pitches,durations)
         
