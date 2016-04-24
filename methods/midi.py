@@ -77,6 +77,23 @@ def concatenateTracks(tracks):
             trackOut.addNote(newNote)
         cumulativeTime = cumulativeTime + track.length
     return trackOut
+
+# Splits the given track into two tracks, trackA [0,splitPoint) and trackB [splitPoint,END) 
+# Preserves the original track, simply creates 2 new tracks   
+def splitTrack(track, splitPoint):
+    trackA = Track()
+    trackB = Track()
+    for n in track.notes:
+        if n.start < splitPoint:
+            if n.start + n.duration <= splitPoint:
+                trackA.addNote(Note(n.pitch, n.start, n.duration))
+            else:
+                trackA.addNote(Note(n.pitch, n.start, splitPoint - n.start))
+                trackB.addNote(Note(n.pitch, splitPoint, n.start + n.duration - splitPoint))
+        else:
+            trackB.addNote(Note(n.pitch, n.start - splitPoint, n.duration))
+    return (trackA,trackB)
+    
     
 def makeTrackFromMidi(mid, trackNum):
     track = Track()

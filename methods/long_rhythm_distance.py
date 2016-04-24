@@ -71,10 +71,10 @@ class RhythmDistanceModel:
                             use dist but I think it's a typo - it doesn't make
                             that much sense otherwise
                             """
-                            sigma = dists[r] - betas[r]
+                            delta = dists[r] - betas[r]
                             clusterProbs[k][r] = (
                                 self.weights[i][j][k] *
-                                self.gradientBinomialDistanceProb(sigma,alphas[r],betas[r],self.probs[i][j][k]))
+                                self.gradientBinomialDistanceProb(delta,alphas[r],betas[r],self.probs[i][j][k]))
                     # Normalize cluster probabilities s.t. the total prob 
                     # across clusters for a given rhythm is 1
                     np.divide(clusterProbs, np.sum(clusterProbs,0))
@@ -113,24 +113,24 @@ class RhythmDistanceModel:
             dist = distance(combinedRhythm, i, j, self.barLen)
             alpha = alphaDist(combinedRhythm, i, j, self.barLen)
             beta = betaDist(combinedRhythm, i, j, self.barLen)
-            sigma = dist - beta
+            delta = dist - beta
             iProb = 0.0
             for k in range(self.clusterCount):
-                iProb += self.weights[i][j][k] * self.gradientBinomialDistanceProb(sigma,alpha,beta,self.probs[i][j][k])
+                iProb += self.weights[i][j][k] * self.gradientBinomialDistanceProb(delta,alpha,beta,self.probs[i][j][k])
             totalProb += np.log(iProb)
         return totalProb
     
     # As binomialDistanceProb below, but adds a gradient to impossible distance
     # value probabilities, so that all probabilities are non-zero and "more 
     # impossible" values have lower probability
-    def gradientBinomialDistanceProb(self, sigma, alpha, beta, prob):
+    def gradientBinomialDistanceProb(self, delta, alpha, beta, prob):
         if alpha - beta == 0:
-            if sigma == 0:
+            if delta == 0:
                 return 1
             else:
-                return self.minimumDistanceProb**(1+sigma)
+                return self.minimumDistanceProb**(1+delta)
         return max(min(
-            binom.pmf(sigma, alpha - beta, prob),
+            binom.pmf(delta, alpha - beta, prob),
             self.maximumDistanceProb),
             self.minimumDistanceProb)
         
@@ -229,14 +229,14 @@ def betaDist(rhythm, barA, barB, ticksPerBar):
             beta = iBeta
     return beta
 
-def binomialDistanceProb(sigma, alpha, beta, prob):
+def binomialDistanceProb(delta, alpha, beta, prob):
     if alpha - beta == 0:
-        if sigma == 0:
+        if delta == 0:
             return 1
         else:
             # This causes a gradient of 0 among "impossible" distance
             # values - making gradient ascent impossible. For cases where 
             # gradient ascent is needed, use gradientBinomialDistanceProb
             return 0
-    return binom.pmf(sigma, alpha - beta, prob)
+    return binom.pmf(delta, alpha - beta, prob)
         

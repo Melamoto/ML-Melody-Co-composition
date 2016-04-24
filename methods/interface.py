@@ -188,4 +188,31 @@ def loadMidisAndGenerate(path, generator):
     generated = [generator.generateBar(t) for t in tracks]
     trackEndings = [rm.makeTrackFromRhythmMelody(r,m,6) for r,m in generated]
     return trackEndings
+
+# Takes a set of bars to overwrite in the original melodies
+def loadMidisAndGenerateBars(path, generator, bars):
+    midis = loadMidis(path)
+    for b in bars:
+        assert b < generator.barCount, "Invalid bar count"
+    splitPoints = [b*generator.barLen for b in bars]
+    tracks = [midi.makeTrackFromMidi(m,0) for m in midis]
+    generated = []
+    for t in tracks:
+        startBar = 0
+        endBar = 0
+        totalTrack = midi.Track()
+        while startBar < generator.barCount:
+            if startBar in bars:
+                (genRhy,genMel) = generator.generateBar(totalTrack)
+                totalTrack = rm.makeTrackFromRhythmMelody(genRhy,genMel,6)
+                startBar += 1
+            else:
+                endBar = startBar+1
+                while (not endBar in bars) and (endBar < generator.barCount):
+                    endBar += 1
+                (_,trackSeg) = midi.splitTrack(t, generator.barLen*startBar)
+                (trackSeg,_) = midi
+    generated = [generator.generateBar(t) for t in tracks]
+    trackEndings = [rm.makeTrackFromRhythmMelody(r,m,6) for r,m in generated]
+    return trackEndings
     

@@ -80,10 +80,10 @@ def getPitchDurationFromSample(sample):
     minorThirdPitch = 0
     for i in range(0,4):
         if sample[i] == 1:
-            majorThirdPitch = i+1 
+            majorThirdPitch = i 
     for i in range(4,7):
         if sample[i] == 1:
-            minorThirdPitch = i+1
+            minorThirdPitch = i-4
     inOctavePitch = 0
     # Could use the chinese remainder theorem, might save valuable picoseconds
     for i in range(12):
@@ -94,7 +94,7 @@ def getPitchDurationFromSample(sample):
         octave = 4
     elif sample[8] == 1:
         octave = 6
-    pitch = (octave*12) + inOctavePitch
+    pitch = ((octave+1)*12) + inOctavePitch
     durationString = ''
     for i in range(9,9+durationLen()):
         durationString += str(sample[i])
@@ -156,7 +156,7 @@ def buildLstmNetwork(hiddenSize):
     """
     net = RecurrentNetwork()
     inLayer = LinearLayer(sampleSize())
-    hiddenLayer = LSTMLayer(hiddenSize)
+    hiddenLayer = SigmoidLayer(hiddenSize)
     outLayer = SigmoidLayer(outputSize())
     net.addInputModule(inLayer)
     net.addModule(hiddenLayer)
@@ -168,7 +168,7 @@ def buildLstmNetwork(hiddenSize):
     net.addConnection(inToHidden)
     net.addConnection(hiddenToOut)
     """
-    net = buildNetwork(sampleSize(), hiddenSize, outputSize(), hiddenclass=LSTMLayer, recurrent=True)
+    net = buildNetwork(sampleSize(), hiddenSize, outputSize(), hiddenclass=LSTMLayer, outputbias=False, recurrent=True)
     net.sortModules()
     net.randomize()
     return net
@@ -181,14 +181,14 @@ def trainNetwork(net, ds, epochs, learningrate = 0.01, momentum=0.4, weightdecay
                               weightdecay=weightdecay)
     trainer.trainEpochs(epochs)
 
-def getNextNotes(net, pitchesDS, length):
+def getNextNotes(net, pitchesDS, length, sequence=0):
     net.reset()
     pitches = []
     durations = []
     lastOutput = []
     normalizedOutput = []
     totalDuration = 0
-    for sample in pitchesDS.getSequenceIterator(0):
+    for sample in pitchesDS.getSequenceIterator(sequence):
         lastOutput = net.activate(sample[0])
     while totalDuration < length:
         normalizedOutput = normalizeOutputSample(lastOutput)

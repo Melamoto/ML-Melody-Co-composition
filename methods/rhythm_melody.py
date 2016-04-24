@@ -81,6 +81,7 @@ class MelodyGenerator:
         print('Total: {}'.format(hmm-start))
         # print('Best: {} : {}'.format(bestI,bestScore))
     
+    # Returns rhythm and melody of the original track + a generated bar
     def generateBar(self, track, rdmLam=4.0):
         # Format data for prediction
         rhythm = rh.makeTrackRhythm(track)
