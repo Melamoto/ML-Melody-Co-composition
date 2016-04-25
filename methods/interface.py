@@ -174,12 +174,16 @@ def loadMidis(path):
     midis = [MidiFile(join(path, m)) for m in listdir(path) if isfile(join(path, m)) and m[-4:]=='.mid']
     return midis
 
-def loadMidisAndTrainGenerator(path, hiddenStates, hiddenLayer, netEpochs, barLen, barCount, clusterCount, hmmIters=1000):
+def loadMidisAndTrainGenerator(path, hiddenStates, hiddenLayer, netEpochs,
+                               barLen, barCount, clusterCount, hmmIters=1000,
+                               filename=None):
     midis = loadMidis(path)
     tracks = [midi.makeTrackFromMidi(m,0) for m in midis]
     trackDS = rm.TrackDataSet(tracks)
     generator = rm.MelodyGenerator(hiddenStates, hiddenLayer, barLen, barCount, clusterCount, hmmIters=hmmIters)
     generator.trainTimed(netEpochs, trackDS)
+    if not (filename is None):
+        generator.save(filename)
     return generator
 
 def loadMidisAndGenerate(path, generator):
@@ -193,26 +197,28 @@ def loadMidisAndGenerate(path, generator):
 def loadMidisAndGenerateBars(path, generator, bars):
     midis = loadMidis(path)
     for b in bars:
-        assert b < generator.barCount, "Invalid bar count"
-    splitPoints = [b*generator.barLen for b in bars]
+        assert b < generator.rdm.barCount, "Invalid bar count"
     tracks = [midi.makeTrackFromMidi(m,0) for m in midis]
     generated = []
     for t in tracks:
         startBar = 0
         endBar = 0
         totalTrack = midi.Track()
-        while startBar < generator.barCount:
+        while startBar < generator.rdm.barCount:
             if startBar in bars:
                 (genRhy,genMel) = generator.generateBar(totalTrack)
                 totalTrack = rm.makeTrackFromRhythmMelody(genRhy,genMel,6)
                 startBar += 1
             else:
                 endBar = startBar+1
-                while (not endBar in bars) and (endBar < generator.barCount):
+                while (not endBar in bars) and (endBar < generator.rdm.barCount):
                     endBar += 1
-                (_,trackSeg) = midi.splitTrack(t, generator.barLen*startBar)
-                (trackSeg,_) = midi
-    generated = [generator.generateBar(t) for t in tracks]
-    trackEndings = [rm.makeTrackFromRhythmMelody(r,m,6) for r,m in generated]
-    return trackEndings
+                (_,trackSeg) = midi.splitTrack(t, generator.rdm.barLen*startBar)
+                (trackSeg,_) = midi.splitTrack(trackSeg, generator.rdm.barLen*endBar)
+                totalTrack = midi.concatenateTracks([totalTrack,trackSeg])
+                startBar = endBar
+            if totalTrack.length != generator.rdm.barCount*startBar:
+                pdb.set_trace()
+        generated.append(totalTrack)
+    return generated
     

@@ -38,6 +38,8 @@ class MelodyGenerator:
         self.rdm = lrd.RhythmDistanceModel(barLen, barCount, clusterCount)
         self.stateCount = stateCount
         self.distTheta = []
+        self.barLen = barLen
+        self.barCount = barCount
         
     def train(self, epochs, trackDS):
         mel.trainNetwork(self.net, trackDS.melodyDS, epochs)

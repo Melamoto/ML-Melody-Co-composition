@@ -152,8 +152,7 @@ def makeMelodyDataSet(melodies):
         m.addSamples(seqDataSet)
     return seqDataSet
 
-def buildLstmNetwork(hiddenSize):
-    """
+def buildElmanNetwork(hiddenSize):
     net = RecurrentNetwork()
     inLayer = LinearLayer(sampleSize())
     hiddenLayer = SigmoidLayer(hiddenSize)
@@ -167,7 +166,11 @@ def buildLstmNetwork(hiddenSize):
     net.addRecurrentConnection(hiddenRecursive)
     net.addConnection(inToHidden)
     net.addConnection(hiddenToOut)
-    """
+    net.sortModules()
+    net.randomize()
+    return net
+
+def buildLstmNetwork(hiddenSize):
     net = buildNetwork(sampleSize(), hiddenSize, outputSize(), hiddenclass=LSTMLayer, outputbias=False, recurrent=True)
     net.sortModules()
     net.randomize()
@@ -199,4 +202,25 @@ def getNextNotes(net, pitchesDS, length, sequence=0):
         lastOutput = net.activate(normalizedOutput)
     #durations[-1] -= (totalDuration - length)
     return (pitches,durations)
+    
+class scale:
+
+    def __init__(self, numOctaves, root, rootOctave, mode, structure, toneDivision):
+        self.numOctaves = numOctaves
+        self.root = root
+        self.rootOctave = rootOctave
+        self.mode = mode
+        self.structure = structure
+        self.toneDivision = toneDivision
+        
+    def tuningFactor(self):
+        return 1/self.toneDivision
+        
+    # Step 1: Scale Generation
+    def getFrequencyRatioVector(self):
+        pass
+
+def generateChaoticInspiration(scale, chaos):
+    
+    pass
         
