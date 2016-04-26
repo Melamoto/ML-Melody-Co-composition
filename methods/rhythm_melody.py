@@ -14,15 +14,11 @@ from copy import deepcopy
 import pdb
 import pickle
 
-# Temp
-mel.planCount = 1
-
 class TrackDataSet:
     
     def __init__(self,tracks):
         rhythms = [None]*len(tracks)
         melodies = [None]*len(tracks)
-        mel.planCount = 1
         for i,t in enumerate(tracks):
             rhythms[i] = rh.makeTrackRhythm(t)
             melodies[i] = mel.makeTrackMelody(t,0)
@@ -101,8 +97,6 @@ class MelodyGenerator:
         pitchOutTS = mel.getNextPitches(self.net, melody.pitches[-1], melodyDS,
                                         rhythm.timesteps[-1], rhythmOutTS)
         # Load output into classes
-        rhythmOut = rh.Rhythm()
-        pitchOut = mel.Melody(0)
         t = 0
         for t in range(len(rhythmOutTS)):
             rhythm.addTimestep(rhythmOutTS[t])

@@ -201,7 +201,7 @@ def loadMidisAndGenerateBars(path, generator, bars):
     for t in tracks:
         startBar = 0
         endBar = 0
-        totalTrack = midi.Track()
+        totalTrack = midi.Track(barLen=generator.barLen)
         while startBar < generator.barCount:
             if startBar in bars:
                 totalTrack = generator.generateBar(totalTrack)
@@ -214,8 +214,9 @@ def loadMidisAndGenerateBars(path, generator, bars):
                 (trackSeg,_) = midi.splitTrack(trackSeg, generator.barLen*endBar)
                 totalTrack = midi.concatenateTracks([totalTrack,trackSeg])
                 startBar = endBar
-            if totalTrack.length != generator.barCount*startBar:
+            if totalTrack.length != generator.barLen*startBar:
                 pdb.set_trace()
+                # If you got here something is wrong
         generated.append(totalTrack)
     return generated
     

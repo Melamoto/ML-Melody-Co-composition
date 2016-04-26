@@ -184,7 +184,7 @@ def makeMelodyFromTrack(track):
         melody.addNote(n.pitch,n.duration,bar)
     return melody
 
-def makeTrackFromMelody(melody):
+def makeTrackFromMelody(melody, barLen):
     track = midi.Track()
     totalTime = 0
     for i in range(len(melody.pitches)):
@@ -225,7 +225,7 @@ def trainNetwork(net, ds, epochs, learningrate = 0.01, momentum=0.4, weightdecay
                               weightdecay=weightdecay)
     trainer.trainEpochs(epochs)
 
-def getNextNotes(net, pitchesDS, length, sequence=0):
+def getNextNotes(net, pitchesDS, length, inspiration, bar, sequence=0):
     net.reset()
     pitches = []
     durations = []
@@ -237,11 +237,13 @@ def getNextNotes(net, pitchesDS, length, sequence=0):
     while totalDuration < length:
         normalizedOutput = normalizeOutputSample(lastOutput)
         (pitch, duration) = getPitchDurationFromSample(normalizedOutput)
+        inspirationNote = len(pitches)
         totalDuration += duration
         pitches.append(pitch)
         durations.append(duration)
-        lastOutput = net.activate(normalizedOutput)
-    #durations[-1] -= (totalDuration - length)
+        nextInput = makeNoteSample(pitch, duration, inspiration[inspirationNote], bar)
+        lastOutput = net.activate(nextInput)
+    durations[-1] -= (totalDuration - length)
     return (pitches,durations)
     
 class scale:
@@ -361,11 +363,13 @@ class MelodyGenerator:
     def generateBar(self, track):
         # Format data for prediction
         melody = makeMelodyFromTrack(track)
+        bar = melody.bars[-1]+1
         melodyDS = makeMelodyDataSet([melody])
-        (pitches,durations) = getNextNotes(self.net, melodyDS, self.barLen)
+        inspiration = randomInspiration(self.barLen)
+        (pitches,durations) = getNextNotes(self.net, melodyDS, self.barLen, inspiration, bar)
         for i in range(len(pitches)):
-            melody.addNote(pitches[i],durations[i])
-        trackOut = makeTrackFromMelody(melody)
+            melody.addNote(pitches[i],durations[i],bar)
+        trackOut = makeTrackFromMelody(melody, self.barLen)
         return trackOut
 
 

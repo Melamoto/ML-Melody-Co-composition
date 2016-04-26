@@ -71,7 +71,14 @@ class Track:
             
         
 def concatenateTracks(tracks):
-    trackOut = Track()
+    barLen = np.inf
+    if len(tracks) > 0:
+        barLen = tracks[0].barLen
+        for t in tracks:
+            if t.barLen != barLen:
+                pdb.set_trace()
+            assert t.barLen == barLen, "All concatenating tracks must have the same bar length"
+    trackOut = Track(barLen=barLen)
     cumulativeTime = 0
     for track in tracks:
         for note in track.notes:
@@ -83,8 +90,8 @@ def concatenateTracks(tracks):
 # Splits the given track into two tracks, trackA [0,splitPoint) and trackB [splitPoint,END) 
 # Preserves the original track, simply creates 2 new tracks   
 def splitTrack(track, splitPoint):
-    trackA = Track()
-    trackB = Track()
+    trackA = Track(barLen = track.barLen)
+    trackB = Track(barLen = track.barLen)
     for n in track.notes:
         if n.start < splitPoint:
             if n.start + n.duration <= splitPoint:

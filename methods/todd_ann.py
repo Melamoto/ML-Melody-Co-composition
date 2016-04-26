@@ -36,17 +36,19 @@ class WeightedPartialIdentityConnection(Connection):
         inerr += [i*self.weight for i in outerr]
 
 pitchCount = 12
-planCount = 0
 # Value representing no pitch
 nonPitch = -1
 
 def sampleSize():
-    return pitchCount + planCount + 1
+    return (
+        pitchCount +
+        1 +             
+        3)
     
 def outputSize():
     return pitchCount
 
-def makeNoteSample(pitch, newNote, plan):
+def makeNoteSample(pitch, newNote):
     sample = [0] * sampleSize()
     for i in range(pitchCount):
         if i == pitch:
@@ -54,12 +56,6 @@ def makeNoteSample(pitch, newNote, plan):
         else:
             sample[i] = 0
     sample[pitchCount] = newNote
-    for i in range(planCount):
-        if i == plan or plan == None:
-            # If there is no plan, use all the available plans so far
-            sample[i+pitchCount+1] = 1
-        else:
-            sample[i+pitchCount+1] = 0
     return sample
     
 def makeNoteTarget(pitch):
@@ -72,16 +68,14 @@ def makeNoteTarget(pitch):
     return target
 
 class Melody():
-    def __init__(self,plan):
+    def __init__(self):
         self.pitches = []
         self.newNotes = []
-        self.plan = plan
 
     def addSamples(self, dataSet):
         for s in range(len(self.pitches)-1):
             if self.pitches[s] != self.pitches[s+1]:
-                dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s],
-                                                 self.plan),
+                dataSet.addSample(makeNoteSample(self.pitches[s], self.newNotes[s]),
                                   makeNoteTarget(self.pitches[s+1]))
 
     def addNote(self, pitch, newNote):
@@ -91,9 +85,9 @@ class Melody():
     def length(self):
         return len(self.pitches)
 
-def makeTrackMelody(track,plan):
+def makeTrackMelody(track):
     assert track.isMonophonic(), "Only monophonic tracks can be enscribed"
-    melody = Melody(plan)
+    melody = Melody()
     melody.pitches = [nonPitch]*track.length
     melody.newNotes = [False]*track.length
     noteStart = 0
@@ -138,28 +132,7 @@ def trainNetwork(net, ds, epochs, momentum=0.4, weightdecay = 0.01):
     trainer = BackpropTrainer(net, dataset=ds, momentum=momentum, weightdecay=weightdecay)
     trainer.trainEpochs(epochs)
     
-"""
-% Old method, flawed
-def getNextPitches(net, startPitch, startBeat, beats, plan=0):
-    noteCount = len(beats)
-    notes = [0]*noteCount
-    lastPitch = startPitch
-    lastBeat = (startBeat == 1)
-    for i in range(noteCount):
-        nextSample = makeNoteSample(lastPitch,lastBeat,plan)
-        out = net.activate(nextSample)
-        # If the note is being sustained, do not change the pitch
-        if beats[i] == 1:
-            lastPitch = max(enumerate(out),key=operator.itemgetter(1))[0]
-        # If the melody is silent, use no note
-        elif beats[i] == 0:
-            lastPitch = nonPitch
-        lastBeat = (beats[i] == 1)
-        notes[i] = lastPitch
-    return notes
-"""
-
-def getNextPitches(net, startPitch, pitchesDS, startBeat, beats, plan=0):
+def getNextPitches(net, startPitch, pitchesDS, startBeat, beats):
     noteCount = len(beats)
     notes = [0]*noteCount
     net.reset()
@@ -169,13 +142,13 @@ def getNextPitches(net, startPitch, pitchesDS, startBeat, beats, plan=0):
     for i in range(noteCount):
         # If a new note is being played, change the pitch
         if beats[i] == 1:
-            nextSample = makeNoteSample(lastPitch,1,plan)
+            nextSample = makeNoteSample(lastPitch,1)
             out = net.activate(nextSample)
             lastPitch = max(enumerate(out),key=operator.itemgetter(1))[0]
         # If the melody is silent, use no note
         elif beats[i] == 0:
             if lastPitch != nonPitch:
-                nextSample = makeNoteSample(nonPitch,0,plan)
+                nextSample = makeNoteSample(nonPitch,0)
                 net.activate(nextSample)
             lastPitch = nonPitch
         notes[i] = lastPitch
