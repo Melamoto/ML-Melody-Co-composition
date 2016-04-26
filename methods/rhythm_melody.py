@@ -32,7 +32,7 @@ class TrackDataSet:
         
 class MelodyGenerator:
     
-    def __init__(self, stateCount, layerSize, barLen, barCount, clusterCount, hmmIters=1000,):
+    def __init__(self, stateCount, layerSize, barLen, barCount, clusterCount, hmmIters=1000, octave=5):
         self.net = mel.buildToddNetwork(layerSize)
         self.hmm = rh.buildHMM(stateCount, n_iter=hmmIters, tol=0.00001)
         self.rdm = lrd.RhythmDistanceModel(barLen, barCount, clusterCount)
@@ -40,8 +40,10 @@ class MelodyGenerator:
         self.distTheta = []
         self.barLen = barLen
         self.barCount = barCount
+        self.octave = octave
         
-    def train(self, epochs, trackDS):
+    def train(self, epochs, tracks):
+        trackDS = TrackDataSet(tracks)
         mel.trainNetwork(self.net, trackDS.melodyDS, epochs)
         bestHMM = self.hmm
         bestScore = 0
@@ -83,7 +85,7 @@ class MelodyGenerator:
         print('Total: {}'.format(hmm-start))
         # print('Best: {} : {}'.format(bestI,bestScore))
     
-    # Returns rhythm and melody of the original track + a generated bar
+    # Returns the original track + a generated bar
     def generateBar(self, track, rdmLam=4.0):
         # Format data for prediction
         rhythm = rh.makeTrackRhythm(track)
@@ -106,7 +108,8 @@ class MelodyGenerator:
             rhythm.addTimestep(rhythmOutTS[t])
             newNote = (rhythmOutTS[t] == 1)
             melody.addNote(pitchOutTS[t],newNote)
-        return (rhythm,melody)
+        trackOut = makeTrackFromRhythmMelody(rhythm, melody, self.octave)
+        return trackOut
 
     # Saves the melody generator's learned characteristics to a file to be loaded later        
     def save(self, filename):

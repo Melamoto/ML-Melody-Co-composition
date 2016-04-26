@@ -5,6 +5,7 @@ Handles the input, output, and representation of midi files
 
 from mido import MidiFile
 from mido import MidiTrack
+import numpy as np
 import mido
 import pdb
 
@@ -29,8 +30,9 @@ class Note:
 
 class Track:
     
-    def __init__(self, notes=None):
+    def __init__(self, notes=None, barLen=np.inf):
         self.notes = []
+        self.barLen = barLen
         self.length = 0
         if not notes is None:
             for n in notes:
@@ -99,6 +101,11 @@ def makeTrackFromMidi(mid, trackNum):
     track = Track()
     currentTime = 0
     lastNoteStarted = [0]*128
+    timeSignature = getMidiTimeSignature(mid)
+    numerator = 4
+    if not timeSignature is None:
+        numerator = timeSignature[0][0]
+    track.barLen = int(timestepsPerBeat * numerator)
     for message in mid.tracks[trackNum]:
         currentTime = currentTime + message.time
         if message.type == 'note_on' or message.type == 'note_off':
